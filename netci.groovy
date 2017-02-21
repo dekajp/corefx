@@ -349,6 +349,11 @@ def buildArchConfiguration = ['Debug': 'x86',
 
                 def newJobName = "${osName.toLowerCase()}_${configurationGroup.toLowerCase()}"
 
+                // Windows can be x86 or x64. Distinguish those
+                if (osName == 'Windows 10' || osName == 'Windows 7' || osName == 'Windows_NT') {
+                    newJobName += " ${buildArchConfiguration[configurationGroup]}"
+                } 
+
                 def newJob = job(Utilities.getFullJobName(project, newJobName, isPR)) {
                     // On Windows we use the packer to put together everything. On *nix we use tar
                     steps {
