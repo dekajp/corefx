@@ -1,5 +1,6 @@
-// Copyright (c) Microsoft. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for more information.
 
 namespace System.IO.Compression
 {
@@ -22,7 +23,7 @@ namespace System.IO.Compression
         /// to read header/footer data from a file of that format. If the Zlib library
         /// is instead being used and the file format is supported, we can simply pass
         /// a supported WindowSize and let Zlib do the header/footer parsing for us.
-        /// 
+        ///
         /// This Property allows getting of a ZLibWindowSize that can be used in place
         /// of manually parsing the raw data stream.
         /// </summary>
@@ -33,13 +34,12 @@ namespace System.IO.Compression
         /// </return>
         /// <remarks>
         /// The windowBits parameter for inflation must be greater than or equal to the
-        /// windowBits parameter used in deflation. 
+        /// windowBits parameter used in deflation.
         /// </remarks>
         /// <remarks>
-        /// If the incorrect header information is used, zlib inflation will likely throw a 
+        /// If the incorrect header information is used, zlib inflation will likely throw a
         /// Z_DATA_ERROR exception.
         ///</remarks>
         int ZLibWindowSize { get; }
     }
 }
-

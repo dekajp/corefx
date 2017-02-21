@@ -57,7 +57,7 @@ namespace System.Net.Sockets.Tests
         [Theory]
         [InlineData(SocketImplementationType.APM)]
         [InlineData(SocketImplementationType.Async)]
-        [PlatformSpecific(PlatformID.AnyUnix)]
+        [PlatformSpecific(TestPlatforms.AnyUnix)]
         public void Unix_NotSupported_ThrowsPlatformNotSupportedException(SocketImplementationType type)
         {
             int port;
@@ -146,7 +146,7 @@ namespace System.Net.Sockets.Tests
         [Theory]
         [InlineData(SocketImplementationType.APM)]
         [InlineData(SocketImplementationType.Async)]
-        [PlatformSpecific(PlatformID.Windows)]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void NullElement_Ignored(SocketImplementationType type)
         {
             SendPackets(type, (SendPacketsElement)null, 0);
@@ -156,7 +156,7 @@ namespace System.Net.Sockets.Tests
         [Theory]
         [InlineData(SocketImplementationType.APM)]
         [InlineData(SocketImplementationType.Async)]
-        [PlatformSpecific(PlatformID.Windows)]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void EmptyList_Ignored(SocketImplementationType type)
         {
             SendPackets(type, new SendPacketsElement[0], SocketError.Success, 0);
@@ -177,7 +177,7 @@ namespace System.Net.Sockets.Tests
         [Theory]
         [InlineData(SocketImplementationType.APM)]
         [InlineData(SocketImplementationType.Async)]
-        [PlatformSpecific(PlatformID.Windows)]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void NormalBuffer_Success(SocketImplementationType type)
         {
             SendPackets(type, new SendPacketsElement(new byte[10]), 10);
@@ -186,7 +186,7 @@ namespace System.Net.Sockets.Tests
         [Theory]
         [InlineData(SocketImplementationType.APM)]
         [InlineData(SocketImplementationType.Async)]
-        [PlatformSpecific(PlatformID.Windows)]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void NormalBufferRange_Success(SocketImplementationType type)
         {
             SendPackets(type, new SendPacketsElement(new byte[10], 5, 5), 5);
@@ -195,7 +195,7 @@ namespace System.Net.Sockets.Tests
         [Theory]
         [InlineData(SocketImplementationType.APM)]
         [InlineData(SocketImplementationType.Async)]
-        [PlatformSpecific(PlatformID.Windows)]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void EmptyBuffer_Ignored(SocketImplementationType type)
         {
             SendPackets(type, new SendPacketsElement(new byte[0]), 0);
@@ -204,7 +204,7 @@ namespace System.Net.Sockets.Tests
         [Theory]
         [InlineData(SocketImplementationType.APM)]
         [InlineData(SocketImplementationType.Async)]
-        [PlatformSpecific(PlatformID.Windows)]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void BufferZeroCount_Ignored(SocketImplementationType type)
         {
             SendPackets(type, new SendPacketsElement(new byte[10], 4, 0), 0);
@@ -213,7 +213,7 @@ namespace System.Net.Sockets.Tests
         [Theory]
         [InlineData(SocketImplementationType.APM)]
         [InlineData(SocketImplementationType.Async)]
-        [PlatformSpecific(PlatformID.Windows)]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void BufferMixedBuffers_ZeroCountBufferIgnored(SocketImplementationType type)
         {
             SendPacketsElement[] elements = new SendPacketsElement[]
@@ -228,7 +228,7 @@ namespace System.Net.Sockets.Tests
         [Theory]
         [InlineData(SocketImplementationType.APM)]
         [InlineData(SocketImplementationType.Async)]
-        [PlatformSpecific(PlatformID.Windows)]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void BufferZeroCountThenNormal_ZeroCountIgnored(SocketImplementationType type)
         {
             Assert.True(Capability.IPv6Support());
@@ -279,12 +279,32 @@ namespace System.Net.Sockets.Tests
 
         #endregion Buffers
 
+        #region TransmitFileOptions
+        [Theory]
+        [InlineData(SocketImplementationType.APM)]
+        [InlineData(SocketImplementationType.Async)]
+        [PlatformSpecific(TestPlatforms.Windows)]
+        public void SocketDisconnected_TransmitFileOptionDisconnect(SocketImplementationType type)
+        {
+            SendPackets(type, new SendPacketsElement(new byte[10], 4, 4), TransmitFileOptions.Disconnect, 4);
+        }
+
+        [Theory]
+        [InlineData(SocketImplementationType.APM)]
+        [InlineData(SocketImplementationType.Async)]
+        [PlatformSpecific(TestPlatforms.Windows)]
+        public void SocketDisconnectedAndReusable_TransmitFileOptionReuseSocket(SocketImplementationType type)
+        {
+            SendPackets(type, new SendPacketsElement(new byte[10], 4, 4), TransmitFileOptions.Disconnect | TransmitFileOptions.ReuseSocket, 4);
+        }
+        #endregion
+
         #region Files
 
         [Theory]
         [InlineData(SocketImplementationType.APM)]
         [InlineData(SocketImplementationType.Async)]
-        [PlatformSpecific(PlatformID.Windows)]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void SendPacketsElement_EmptyFileName_Throws(SocketImplementationType type)
         {
             Assert.Throws<ArgumentException>(() =>
@@ -296,7 +316,7 @@ namespace System.Net.Sockets.Tests
         [Theory]
         [InlineData(SocketImplementationType.APM)]
         [InlineData(SocketImplementationType.Async)]
-        [PlatformSpecific(PlatformID.Windows)]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void SendPacketsElement_BlankFileName_Throws(SocketImplementationType type)
         {
             Assert.Throws<ArgumentException>(() =>
@@ -309,7 +329,7 @@ namespace System.Net.Sockets.Tests
         [Theory]
         [InlineData(SocketImplementationType.APM)]
         [InlineData(SocketImplementationType.Async)]
-        [PlatformSpecific(PlatformID.Windows)]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void SendPacketsElement_BadCharactersFileName_Throws(SocketImplementationType type)
         {
             Assert.Throws<ArgumentException>(() =>
@@ -322,7 +342,7 @@ namespace System.Net.Sockets.Tests
         [Theory]
         [InlineData(SocketImplementationType.APM)]
         [InlineData(SocketImplementationType.Async)]
-        [PlatformSpecific(PlatformID.Windows)]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void SendPacketsElement_MissingDirectoryName_Throws(SocketImplementationType type)
         {
             Assert.Throws<DirectoryNotFoundException>(() =>
@@ -335,7 +355,7 @@ namespace System.Net.Sockets.Tests
         [Theory]
         [InlineData(SocketImplementationType.APM)]
         [InlineData(SocketImplementationType.Async)]
-        [PlatformSpecific(PlatformID.Windows)]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void SendPacketsElement_MissingFile_Throws(SocketImplementationType type)
         {
             Assert.Throws<FileNotFoundException>(() =>
@@ -348,7 +368,7 @@ namespace System.Net.Sockets.Tests
         [Theory]
         [InlineData(SocketImplementationType.APM)]
         [InlineData(SocketImplementationType.Async)]
-        [PlatformSpecific(PlatformID.Windows)]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void SendPacketsElement_File_Success(SocketImplementationType type)
         {
             SendPackets(type, new SendPacketsElement(TestFileName), s_testFileSize); // Whole File
@@ -357,7 +377,7 @@ namespace System.Net.Sockets.Tests
         [Theory]
         [InlineData(SocketImplementationType.APM)]
         [InlineData(SocketImplementationType.Async)]
-        [PlatformSpecific(PlatformID.Windows)]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void SendPacketsElement_FileZeroCount_Success(SocketImplementationType type)
         {
             SendPackets(type, new SendPacketsElement(TestFileName, 0, 0), s_testFileSize);  // Whole File
@@ -366,7 +386,7 @@ namespace System.Net.Sockets.Tests
         [Theory]
         [InlineData(SocketImplementationType.APM)]
         [InlineData(SocketImplementationType.Async)]
-        [PlatformSpecific(PlatformID.Windows)]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void SendPacketsElement_FilePart_Success(SocketImplementationType type)
         {
             SendPackets(type, new SendPacketsElement(TestFileName, 10, 20), 20);
@@ -375,7 +395,7 @@ namespace System.Net.Sockets.Tests
         [Theory]
         [InlineData(SocketImplementationType.APM)]
         [InlineData(SocketImplementationType.Async)]
-        [PlatformSpecific(PlatformID.Windows)]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void SendPacketsElement_FileMultiPart_Success(SocketImplementationType type)
         {
             SendPacketsElement[] elements = new SendPacketsElement[]
@@ -390,7 +410,7 @@ namespace System.Net.Sockets.Tests
         [Theory]
         [InlineData(SocketImplementationType.APM)]
         [InlineData(SocketImplementationType.Async)]
-        [PlatformSpecific(PlatformID.Windows)]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void SendPacketsElement_FileLargeOffset_Throws(SocketImplementationType type)
         {
             // Length is validated on Send
@@ -400,7 +420,7 @@ namespace System.Net.Sockets.Tests
         [Theory]
         [InlineData(SocketImplementationType.APM)]
         [InlineData(SocketImplementationType.Async)]
-        [PlatformSpecific(PlatformID.Windows)]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void SendPacketsElement_FileLargeCount_Throws(SocketImplementationType type)
         {
             // Length is validated on Send
@@ -422,9 +442,50 @@ namespace System.Net.Sockets.Tests
                 GC.WaitForPendingFinalizers();
             }
         }
-        #endregion 
+        #endregion
 
         #region Helpers
+        private void SendPackets(SocketImplementationType type, SendPacketsElement element, TransmitFileOptions flags, int bytesExpected)
+        {
+            Assert.True(Capability.IPv6Support());
+
+            EventWaitHandle completed = new ManualResetEvent(false);
+
+            int port;
+            using (SocketTestServer.SocketTestServerFactory(type, _serverAddress, out port))
+            {
+                using (Socket sock = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp))
+                {
+                    sock.Connect(new IPEndPoint(_serverAddress, port));
+                    using (SocketAsyncEventArgs args = new SocketAsyncEventArgs())
+                    {
+                        args.Completed += OnCompleted;
+                        args.UserToken = completed;
+                        args.SendPacketsElements = new[] { element };
+                        args.SendPacketsFlags = flags;
+
+                        if (sock.SendPacketsAsync(args))
+                        {
+                            Assert.True(completed.WaitOne(TestSettings.PassingTestTimeout), "Timed out");
+                        }
+                        Assert.Equal(SocketError.Success, args.SocketError);
+                        Assert.Equal(bytesExpected, args.BytesTransferred);
+                    }
+
+                    switch (flags)
+                    {
+                        case TransmitFileOptions.Disconnect:
+                            // Sending data again throws with socket shut down error.
+                            Assert.Throws<SocketException>(() => { sock.Send(new byte[1] { 01 }); });
+                            break;
+                        case TransmitFileOptions.ReuseSocket & TransmitFileOptions.Disconnect:
+                            // Able to send data again with reuse socket flag set.
+                            Assert.Equal(1, sock.Send(new byte[1] { 01 }));
+                            break;
+                    }
+                }
+            }
+        }
 
         private void SendPackets(SocketImplementationType type, SendPacketsElement element, int bytesExpected)
         {

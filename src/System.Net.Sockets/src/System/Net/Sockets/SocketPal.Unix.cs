@@ -2,9 +2,11 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using Microsoft.Win32.SafeHandles;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 
 namespace System.Net.Sockets
@@ -16,7 +18,7 @@ namespace System.Net.Sockets
         public const int ProtocolInformationSize = 0;
 
         public const bool SupportsMultipleConnectAttempts = false;
-        private readonly static bool SupportsDualModeIPv4PacketInfo = GetPlatformSupportsDualModeIPv4PacketInfo();
+        private static readonly bool SupportsDualModeIPv4PacketInfo = GetPlatformSupportsDualModeIPv4PacketInfo();
 
         private static bool GetPlatformSupportsDualModeIPv4PacketInfo()
         {
@@ -78,7 +80,7 @@ namespace System.Net.Sockets
             fixed (byte* b = buffer)
             {
                 var iov = new Interop.Sys.IOVector {
-                    Base = &b[offset],
+                    Base = (b == null) ? null : &b[offset],
                     Count = (UIntPtr)count
                 };
 
@@ -227,6 +229,21 @@ namespace System.Net.Sockets
             offset = endOffset;
 
             return sent;
+        }
+
+        private static unsafe long SendFile(SafeCloseSocket socket, SafeFileHandle fileHandle, ref long offset, ref long count, out Interop.Error errno)
+        {
+            long bytesSent; 
+            errno = Interop.Sys.SendFile(socket, fileHandle, offset, count, out bytesSent);
+
+            if (errno != Interop.Error.SUCCESS)
+            {
+                return -1;
+            }
+
+            offset += bytesSent;
+            count -= bytesSent;
+            return bytesSent;
         }
 
         private static unsafe int Receive(SafeCloseSocket socket, SocketFlags flags, IList<ArraySegment<byte>> buffers, byte[] socketAddress, ref int socketAddressLen, out SocketFlags receivedFlags, out Interop.Error errno)
@@ -484,13 +501,14 @@ namespace System.Net.Sockets
             {
                 Interop.Error errno;
                 int received;
-                if (buffer != null)
+                if (buffers != null)
                 {
-                    received = Receive(socket, flags, buffer, offset, count, socketAddress, ref socketAddressLen, out receivedFlags, out errno);
+                    Debug.Assert(buffer == null);
+                    received = Receive(socket, flags, buffers, socketAddress, ref socketAddressLen, out receivedFlags, out errno);
                 }
                 else
                 {
-                    received = Receive(socket, flags, buffers, socketAddress, ref socketAddressLen, out receivedFlags, out errno);
+                    received = Receive(socket, flags, buffer, offset, count, socketAddress, ref socketAddressLen, out receivedFlags, out errno);
                 }
 
                 if (received != -1)
@@ -619,6 +637,45 @@ namespace System.Net.Sockets
             }
         }
 
+        public static bool TryCompleteSendFile(SafeCloseSocket socket, SafeFileHandle handle, ref long offset, ref long count, ref long bytesSent, out SocketError errorCode)
+        {
+            for (;;)
+            {
+                long sent;
+                Interop.Error errno;
+                try
+                {
+                    sent = SendFile(socket, handle, ref offset, ref count, out errno);
+                }
+                catch (ObjectDisposedException)
+                {
+                    // The socket was closed, or is closing.
+                    errorCode = SocketError.OperationAborted;
+                    return true;
+                }
+
+                if (sent == -1)
+                {
+                    if (errno != Interop.Error.EAGAIN && errno != Interop.Error.EWOULDBLOCK)
+                    {
+                        errorCode = GetSocketErrorForErrorCode(errno);
+                        return true;
+                    }
+
+                    errorCode = SocketError.Success;
+                    return false;
+                }
+
+                bytesSent += sent;
+
+                if (sent == 0 || count == 0)
+                {
+                    errorCode = SocketError.Success;
+                    return true;
+                }
+            }
+        }
+
         public static SocketError SetBlocking(SafeCloseSocket handle, bool shouldBlock, out bool willBlock)
         {
             handle.IsNonBlocking = !shouldBlock;
@@ -705,11 +762,6 @@ namespace System.Net.Sockets
             }
         }
 
-        public static SocketError Disconnect(Socket socket, SafeCloseSocket handle, bool reuseSocket)
-        {
-            throw new PlatformNotSupportedException();
-        }
-
         public static SocketError Send(SafeCloseSocket handle, IList<ArraySegment<byte>> buffers, SocketFlags socketFlags, out int bytesTransferred)
         {
             var bufferList = buffers;
@@ -736,6 +788,25 @@ namespace System.Net.Sockets
             bytesTransferred = 0;
             SocketError errorCode;
             bool completed = TryCompleteSendTo(handle, buffer, ref offset, ref count, socketFlags, null, 0, ref bytesTransferred, out errorCode);
+            return completed ? errorCode : SocketError.WouldBlock;
+        }
+
+        public static SocketError SendFile(SafeCloseSocket handle, FileStream fileStream)
+        {
+            long offset = 0;
+            long length = fileStream.Length;
+
+            SafeFileHandle fileHandle = fileStream.SafeFileHandle;
+
+            long bytesTransferred = 0;
+
+            if (!handle.IsNonBlocking)
+            {
+                return handle.AsyncContext.SendFile(fileHandle, offset, length, handle.SendTimeout, out bytesTransferred);
+            }
+
+            SocketError errorCode;
+            bool completed = TryCompleteSendFile(handle, fileHandle, ref offset, ref length, ref bytesTransferred, out errorCode);
             return completed ? errorCode : SocketError.WouldBlock;
         }
 
@@ -945,6 +1016,11 @@ namespace System.Net.Sockets
             {
                 socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.PacketInformation, true);
             }
+        }
+
+        public static void SetIPProtectionLevel(Socket socket, SocketOptionLevel optionLevel, int protectionLevel)
+        {
+            throw new PlatformNotSupportedException();
         }
 
         public static unsafe SocketError GetSockOpt(SafeCloseSocket handle, SocketOptionLevel optionLevel, SocketOptionName optionName, out int optionValue)
@@ -1278,6 +1354,11 @@ namespace System.Net.Sockets
             return handle.AsyncContext.SendAsync(buffers, socketFlags, asyncResult.CompletionCallback);
         }
 
+        public static SocketError SendFileAsync(SafeCloseSocket handle, FileStream fileStream, Action<long, SocketError> callback)
+        {
+            return handle.AsyncContext.SendFileAsync(fileStream.SafeFileHandle, 0, (int)fileStream.Length, callback);
+        }
+
         public static SocketError SendToAsync(SafeCloseSocket handle, byte[] buffer, int offset, int count, SocketFlags socketFlags, Internals.SocketAddress socketAddress, OverlappedAsyncResult asyncResult)
         {
             asyncResult.SocketAddress = socketAddress;
@@ -1320,6 +1401,16 @@ namespace System.Net.Sockets
             byte[] socketAddressBuffer = new byte[socketAddressSize];
 
             return handle.AsyncContext.AcceptAsync(socketAddressBuffer, socketAddressSize, asyncResult.CompletionCallback);
+        }
+
+        internal static SocketError DisconnectAsync(Socket socket, SafeCloseSocket handle, bool reuseSocket, DisconnectOverlappedAsyncResult asyncResult)
+        {
+            throw new PlatformNotSupportedException(SR.net_sockets_disconnect_notsupported);
+        }
+
+        internal static SocketError Disconnect(Socket socket, SafeCloseSocket handle, bool reuseSocket)
+        {
+            throw new PlatformNotSupportedException(SR.net_sockets_disconnect_notsupported);
         }
     }
 }

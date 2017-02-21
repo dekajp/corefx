@@ -141,7 +141,7 @@ enum SocketOptionName : int32_t
     PAL_SO_LINGER = 0x0080,
     PAL_SO_OOBINLINE = 0x0100,
     // PAL_SO_DONTLINGER = ~PAL_SO_LINGER,
-    // PAL_SO_EXCLUSIVEADDRUSE = ~PAL_SO_REUSEADDR,
+    PAL_SO_EXCLUSIVEADDRUSE = ~PAL_SO_REUSEADDR,
     PAL_SO_SNDBUF = 0x1001,
     PAL_SO_RCVBUF = 0x1002,
     PAL_SO_SNDLOWAT = 0x1003,
@@ -417,3 +417,5 @@ extern "C" int32_t SystemNative_PlatformSupportsDualModeIPv4PacketInfo();
 extern "C" char* SystemNative_GetPeerUserName(intptr_t socket);
 
 extern "C" void SystemNative_GetDomainSocketSizes(int32_t* pathOffset, int32_t* pathSize, int32_t* addressSize);
+
+extern "C" Error SystemNative_SendFile(intptr_t out_fd, intptr_t in_fd, int64_t offset, int64_t count, int64_t* sent);

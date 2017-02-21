@@ -36,6 +36,9 @@ namespace System.Net.Sockets
         private event EventHandler<SocketAsyncEventArgs> _completed;
         private bool _completedChanged;
 
+        // DisconnectReuseSocket propery variables.
+        private bool _disconnectReuseSocket;
+
         // LastOperation property variables.
         private SocketAsyncOperation _completedOperation;
 
@@ -50,6 +53,9 @@ namespace System.Net.Sockets
 
         // SendPacketsElements property variables.
         internal SendPacketsElement[] _sendPacketsElements;
+
+        // SendPacketsFlags property variable.
+        internal TransmitFileOptions _sendPacketsFlags;
 
         // SocketError property variables.
         private SocketError _socketError;
@@ -83,8 +89,6 @@ namespace System.Net.Sockets
 
         private MultipleConnectAsync _multipleConnect;
 
-        private static bool s_loggingEnabled = SocketsEventSource.Log.IsEnabled();
-
         public SocketAsyncEventArgs()
         {
             InitializeInternals();
@@ -114,6 +118,13 @@ namespace System.Net.Sockets
         public int Count
         {
             get { return _count; }
+        }
+
+        // SendPacketsFlags property.
+        public TransmitFileOptions SendPacketsFlags
+        {
+            get { return _sendPacketsFlags; }
+            set { _sendPacketsFlags = value; }
         }
 
         // NOTE: this property is mutually exclusive with Buffer.
@@ -166,6 +177,13 @@ namespace System.Net.Sockets
             {
                 handler(e._currentSocket, e);
             }
+        }
+
+        // DisconnectResuseSocket property.
+        public bool DisconnectReuseSocket
+        {
+            get { return _disconnectReuseSocket; }
+            set { _disconnectReuseSocket = value; }
         }
 
         public SocketAsyncOperation LastOperation
@@ -491,16 +509,20 @@ namespace System.Net.Sockets
                     // _currentSocket will only be null if _multipleConnect was set, so we don't have to check.
                     if (_currentSocket == null)
                     {
-                        if (GlobalLog.IsEnabled)
-                        {
-                            GlobalLog.Assert("SocketAsyncEventArgs::CancelConnectAsync - CurrentSocket and MultipleConnect both null!");
-                        }
-                        Debug.Fail("SocketAsyncEventArgs::CancelConnectAsync - CurrentSocket and MultipleConnect both null!");
+                        NetEventSource.Fail(this, "CurrentSocket and MultipleConnect both null!");
                     }
                     _currentSocket.Dispose();
                 }
             }
         }
+
+        internal void StartOperationDisconnect()
+        {
+            // Remember the operation type.
+            _completedOperation = SocketAsyncOperation.Disconnect;
+            InnerStartOperationDisconnect();
+        }
+
         internal void StartOperationReceive()
         {
             // Remember the operation type.
@@ -659,7 +681,7 @@ namespace System.Net.Sockets
                     if (bytesTransferred > 0)
                     {
                         // Log and Perf counters.
-                        if (s_loggingEnabled)
+                        if (NetEventSource.IsEnabled)
                         {
                             LogBuffer(bytesTransferred);
                         }
@@ -678,8 +700,7 @@ namespace System.Net.Sockets
                     {
                         _acceptSocket = _currentSocket.UpdateAcceptSocket(_acceptSocket, _currentSocket._rightEndPoint.Create(remoteSocketAddress));
 
-                        if (s_loggingEnabled)
-                            SocketsEventSource.Accepted(_acceptSocket, _acceptSocket.RemoteEndPoint, _acceptSocket.LocalEndPoint);
+                        if (NetEventSource.IsEnabled) NetEventSource.Accepted(_acceptSocket, _acceptSocket.RemoteEndPoint, _acceptSocket.LocalEndPoint);
                     }
                     else
                     {
@@ -692,7 +713,7 @@ namespace System.Net.Sockets
                     if (bytesTransferred > 0)
                     {
                         // Log and Perf counters.
-                        if (s_loggingEnabled)
+                        if (NetEventSource.IsEnabled)
                         {
                             LogBuffer(bytesTransferred);
                         }
@@ -707,8 +728,7 @@ namespace System.Net.Sockets
                     // Mark socket connected.
                     if (socketError == SocketError.Success)
                     {
-                        if (s_loggingEnabled)
-                            SocketsEventSource.Connected(_currentSocket, _currentSocket.LocalEndPoint, _currentSocket.RemoteEndPoint);
+                        if (NetEventSource.IsEnabled) NetEventSource.Connected(_currentSocket, _currentSocket.LocalEndPoint, _currentSocket.RemoteEndPoint);
 
                         _currentSocket.SetToConnected();
                         _connectSocket = _currentSocket;
@@ -725,7 +745,7 @@ namespace System.Net.Sockets
                     if (bytesTransferred > 0)
                     {
                         // Log and Perf counters.
-                        if (s_loggingEnabled)
+                        if (NetEventSource.IsEnabled)
                         {
                             LogBuffer(bytesTransferred);
                         }
@@ -740,7 +760,7 @@ namespace System.Net.Sockets
                     if (bytesTransferred > 0)
                     {
                         // Log and Perf counters.
-                        if (s_loggingEnabled)
+                        if (NetEventSource.IsEnabled)
                         {
                             LogBuffer(bytesTransferred);
                         }
@@ -769,7 +789,7 @@ namespace System.Net.Sockets
                     if (bytesTransferred > 0)
                     {
                         // Log and Perf counters.
-                        if (s_loggingEnabled)
+                        if (NetEventSource.IsEnabled)
                         {
                             LogBuffer(bytesTransferred);
                         }
@@ -800,7 +820,7 @@ namespace System.Net.Sockets
                     if (bytesTransferred > 0)
                     {
                         // Log and Perf counters.
-                        if (s_loggingEnabled)
+                        if (NetEventSource.IsEnabled)
                         {
                             LogBuffer(bytesTransferred);
                         }
@@ -815,7 +835,7 @@ namespace System.Net.Sockets
                     if (bytesTransferred > 0)
                     {
                         // Log and Perf counters.
-                        if (s_loggingEnabled)
+                        if (NetEventSource.IsEnabled)
                         {
                             LogSendPacketsBuffers(bytesTransferred);
                         }
@@ -832,7 +852,7 @@ namespace System.Net.Sockets
                     if (bytesTransferred > 0)
                     {
                         // Log and Perf counters.
-                        if (s_loggingEnabled)
+                        if (NetEventSource.IsEnabled)
                         {
                             LogBuffer(bytesTransferred);
                         }

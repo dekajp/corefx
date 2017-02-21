@@ -11,11 +11,25 @@ namespace System.Tests
     public class GetEnvironmentVariable
     {
         [Fact]
-        public void NullVariableThrowsArgumentNull()
+        public void InvalidArguments_ThrowsExceptions()
         {
-            Assert.Throws<ArgumentNullException>(() => Environment.GetEnvironmentVariable(null));
-            Assert.Throws<ArgumentNullException>(() => Environment.SetEnvironmentVariable(null, "test"));
-            Assert.Throws<ArgumentException>(() => Environment.SetEnvironmentVariable("", "test"));
+            Assert.Throws<ArgumentNullException>("variable", () => Environment.GetEnvironmentVariable(null));
+            Assert.Throws<ArgumentNullException>("variable", () => Environment.SetEnvironmentVariable(null, "test"));
+            Assert.Throws<ArgumentException>("variable", () => Environment.SetEnvironmentVariable("", "test"));
+            Assert.Throws<ArgumentException>("value", () => Environment.SetEnvironmentVariable("test", new string('s', 65 * 1024)));
+
+#if netstandard17
+            Assert.Throws<ArgumentException>("variable", () => Environment.SetEnvironmentVariable("", "test", EnvironmentVariableTarget.Machine));
+            Assert.Throws<ArgumentNullException>("variable", () => Environment.SetEnvironmentVariable(null, "test", EnvironmentVariableTarget.User));
+            Assert.Throws<ArgumentNullException>("variable", () => Environment.GetEnvironmentVariable(null, EnvironmentVariableTarget.Process));
+            Assert.Throws<ArgumentOutOfRangeException>("target", () => Environment.GetEnvironmentVariable("test", (EnvironmentVariableTarget)42));
+            Assert.Throws<ArgumentOutOfRangeException>("target", () => Environment.SetEnvironmentVariable("test", "test", (EnvironmentVariableTarget)(-1)));
+            Assert.Throws<ArgumentOutOfRangeException>("target", () => Environment.GetEnvironmentVariables((EnvironmentVariableTarget)(3)));
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                Assert.Throws<ArgumentException>("variable", () => Environment.SetEnvironmentVariable(new string('s', 256), "value", EnvironmentVariableTarget.User));
+            }
+#endif
         }
 
         [Fact]
@@ -25,7 +39,7 @@ namespace System.Tests
         }
 
         [Fact]
-        [PlatformSpecific(PlatformID.Windows)] // GetEnvironmentVariable by design doesn't respect changes via setenv
+        [PlatformSpecific(TestPlatforms.Windows)] // GetEnvironmentVariable by design doesn't respect changes via setenv
         public void RandomLongVariableNameCanRoundTrip()
         {
             // NOTE: The limit of 32766 characters enforced by desktop
@@ -120,6 +134,87 @@ namespace System.Tests
             }
         }
 
+        public void EnumerateYieldsDictionaryEntryFromIEnumerable()
+        {
+            // GetEnvironmentVariables has always yielded DictionaryEntry from IEnumerable
+            IDictionary vars = Environment.GetEnvironmentVariables();
+            IEnumerator enumerator = ((IEnumerable)vars).GetEnumerator();
+            if (enumerator.MoveNext())
+            {
+                Assert.IsType<DictionaryEntry>(enumerator.Current);
+            }
+            else
+            {
+                Assert.Throws<InvalidOperationException>(() => enumerator.Current);
+            }
+        }
+
+#if netstandard17
+        public void EnvironmentVariablesAreHashtable()
+        {
+            // On NetFX, the type returned was always Hashtable
+            Assert.IsType<Hashtable>(Environment.GetEnvironmentVariables());
+        }
+
+        [InlineData(EnvironmentVariableTarget.Process)]
+        [InlineData(EnvironmentVariableTarget.Machine)]
+        [InlineData(EnvironmentVariableTarget.User)]
+        public void EnvironmentVariablesAreHashtable(EnvironmentVariableTarget target)
+        {
+            // On NetFX, the type returned was always Hashtable
+            Assert.IsType<Hashtable>(Environment.GetEnvironmentVariables(target));
+        }
+
+        [InlineData(EnvironmentVariableTarget.Process)]
+        [InlineData(EnvironmentVariableTarget.Machine)]
+        [InlineData(EnvironmentVariableTarget.User)]
+        public void EnumerateYieldsDictionaryEntryFromIEnumerable(EnvironmentVariableTarget target)
+        {
+            // GetEnvironmentVariables has always yielded DictionaryEntry from IEnumerable
+            IDictionary vars = Environment.GetEnvironmentVariables(target);
+            IEnumerator enumerator = ((IEnumerable)vars).GetEnumerator();
+            if (enumerator.MoveNext())
+            {
+                Assert.IsType<DictionaryEntry>(enumerator.Current);
+            }
+            else
+            {
+                Assert.Throws<InvalidOperationException>(() => enumerator.Current);
+            }
+        }
+
+        [OuterLoop] // manipulating environment variables broader in scope than the process
+        [Theory]
+        [InlineData(EnvironmentVariableTarget.Process)]
+        [InlineData(EnvironmentVariableTarget.Machine)]
+        [InlineData(EnvironmentVariableTarget.User)]
+        public void EnumerateEnvironmentVariables(EnvironmentVariableTarget target)
+        {
+            IDictionary results = Environment.GetEnvironmentVariables(target);
+            foreach (DictionaryEntry result in results)
+            {
+                string key = (string)result.Key;
+                string value = (string)result.Value ?? string.Empty;
+
+                // Make sure the iterated value we got matches the one we get explicitly
+                Assert.NotNull(result.Key as string);
+                Assert.Equal(value, Environment.GetEnvironmentVariable(key, target));
+
+                try
+                {
+                    // Change it to something else.  Not all values can be changed and will silently
+                    // not change, so we don't re-check and assert for equality.
+                    Environment.SetEnvironmentVariable(key, value + "changed", target);
+                }
+                finally
+                {
+                    // Change it back
+                    Environment.SetEnvironmentVariable(key, value, target);
+                }
+            }
+        }
+#endif
+
         private static void SetEnvironmentVariableWithPInvoke(string name, string value)
         {
             bool success =
@@ -129,7 +224,7 @@ namespace System.Tests
             Assert.True(success);
         }
 
-        [DllImport("api-ms-win-core-processenvironment-l1-1-0.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         private static extern bool SetEnvironmentVariable(string lpName, string lpValue);
 
         [DllImport("libc")]
